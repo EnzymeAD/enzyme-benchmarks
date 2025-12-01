@@ -45,4 +45,4 @@ add_lit_testsuite(bench-enzyme "Running enzyme benchmarks tests"
 
 set_target_properties(bench-enzyme PROPERTIES FOLDER "bench Tests")
 
-add_subdirectory(ReverseMode)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ReverseMode)
