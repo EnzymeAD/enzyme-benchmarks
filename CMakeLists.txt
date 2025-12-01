@@ -27,6 +27,8 @@ set(BENCH_LINK "${CMAKE_CURRENT_BINARY_DIR}/tapenade/src/tapenade/adBuffer.o ${C
 set(BENCH_LDPATH "${CMAKE_CURRENT_BINARY_DIR}/adept2/install/lib")
 message("found bench flags: " ${BENCH_FLAGS})
 
+set(CPU_BENCHMARKS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py
