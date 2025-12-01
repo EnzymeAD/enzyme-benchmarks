@@ -100,4 +100,4 @@ config.substitutions.append(('%newLoadClangEnzyme', newPM))
 config.substitutions.append(('%LoadClangEnzyme', newPM))
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@CPU_BENCHMARKS_SOURCE_DIR@/benchmarks/lit.cfg.py")
+lit_config.load_config(config, "@CPU_BENCHMARKS_SOURCE_DIR@/lit.cfg.py")
