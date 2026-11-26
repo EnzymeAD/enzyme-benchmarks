@@ -142,6 +142,34 @@ extern "C" {
 
     void dcompute_zach_weight_error(double const* w, double* dw, double* err, double* derr);
 
+#ifdef BENCH_RUST
+    void rust_dcompute_reproj_error(
+        double const* cam,
+        double * dcam,
+        double const* X,
+        double * dX,
+        double const* w,
+        double * wb,
+        double const* feat,
+        double *err,
+        double *derr
+    );
+
+    void rust_unsafe_dcompute_reproj_error(
+        double const* cam,
+        double * dcam,
+        double const* X,
+        double * dX,
+        double const* w,
+        double * wb,
+        double const* feat,
+        double *err,
+        double *derr
+    );
+
+    void rust_dcompute_zach_weight_error(double const* w, double* dw, double* err, double* derr);
+#endif
+
     void compute_reproj_error_b(
         double const* cam,
         double * dcam,
@@ -499,6 +527,69 @@ int main(const int argc, const char* argv[]) {
     }
 
     }
+
+#ifdef BENCH_RUST
+    {
+
+    struct BAInput input;
+    read_ba_instance("data/" + path, input.n, input.m, input.p, input.cams, input.X, input.w, input.obs, input.feats);
+
+    struct BAOutput result = {
+        std::vector<double>(2 * input.p),
+        std::vector<double>(input.p),
+        BASparseMat(input.n, input.m, input.p)
+    };
+
+    {
+      struct timeval start, end;
+      gettimeofday(&start, NULL);
+      calculate_jacobian<rust_dcompute_reproj_error, rust_dcompute_zach_weight_error>(input, result);
+      gettimeofday(&end, NULL);
+      printf("Enzyme (Rust) combined %0.6f\n", tdiff(&start, &end));
+      json enzyme;
+      enzyme["name"] = "Enzyme (Rust) combined";
+      enzyme["runtime"] = tdiff(&start, &end);
+      for(unsigned i=0; i<5; i++) {
+        printf("%f ", result.J.vals[i]);
+        enzyme["result"].push_back(result.J.vals[i]);
+      }
+      printf("\n");
+      test_suite["tools"].push_back(enzyme);
+    }
+
+    }
+
+    {
+
+    struct BAInput input;
+    read_ba_instance("data/" + path, input.n, input.m, input.p, input.cams, input.X, input.w, input.obs, input.feats);
+
+    struct BAOutput result = {
+        std::vector<double>(2 * input.p),
+        std::vector<double>(input.p),
+        BASparseMat(input.n, input.m, input.p)
+    };
+
+    {
+      struct timeval start, end;
+      gettimeofday(&start, NULL);
+      calculate_jacobian<rust_unsafe_dcompute_reproj_error, rust_dcompute_zach_weight_error>(input, result);
+      gettimeofday(&end, NULL);
+      printf("Enzyme (unsafe Rust) combined %0.6f\n", tdiff(&start, &end));
+      json enzyme;
+      enzyme["name"] = "Enzyme (unsafe Rust) combined";
+      enzyme["runtime"] = tdiff(&start, &end);
+      for(unsigned i=0; i<5; i++) {
+        printf("%f ", result.J.vals[i]);
+        enzyme["result"].push_back(result.J.vals[i]);
+      }
+      printf("\n");
+      test_suite["tools"].push_back(enzyme);
+    }
+
+    }
+#endif
+
     test_suite["llvm-version"] = __clang_version__;
     test_suite["mode"] = "ReverseMode";
     test_suite["batch-size"] = 1;

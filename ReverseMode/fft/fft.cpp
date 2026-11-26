@@ -45,6 +45,40 @@ static double foobar_and_gradient(unsigned len) {
     return res;
 }
 
+#ifdef BENCH_RUST
+extern "C" {
+  void rust_foobar(size_t n, double* data);
+  void rust_dfoobar(size_t n, double* data, double* ddata);
+  void rust_unsafe_foobar(size_t n, double* data);
+  void rust_unsafe_dfoobar(size_t n, double* data, double* ddata);
+}
+
+static double rust_foobar_and_gradient(unsigned len) {
+    double *inp = new double[2*len];
+    for(int i=0; i<2*len; i++) inp[i] = 2.0;
+    double *dinp = new double[2*len];
+    for(int i=0; i<2*len; i++) dinp[i] = 1.0;
+    rust_dfoobar(len, inp, dinp);
+    double res = dinp[0];
+    delete[] dinp;
+    delete[] inp;
+    return res;
+}
+
+static double rust_unsafe_foobar_and_gradient(unsigned len) {
+    double *inp = new double[2*len];
+    for(int i=0; i<2*len; i++) inp[i] = 2.0;
+    double *dinp = new double[2*len];
+    for(int i=0; i<2*len; i++) dinp[i] = 1.0;
+    rust_unsafe_dfoobar(len, inp, dinp);
+    double res = dinp[0];
+    delete[] dinp;
+    delete[] inp;
+    return res;
+}
+
+#endif
+
 static double afoobar_and_gradient(unsigned len) {
     adept::Stack stack;
 
@@ -202,6 +236,62 @@ static void enzyme_sincos(double inp, unsigned len) {
   }
 }
 
+#ifdef BENCH_RUST
+static void enzyme_rust_sincos(double inp, unsigned len) {
+
+  {
+  struct timeval start, end;
+  gettimeofday(&start, NULL);
+
+  double *x = new double[2*len];
+  for(int i=0; i<2*len; i++) x[i] = 2.0;
+  rust_foobar(len, x);
+  double res = x[0];
+
+  gettimeofday(&end, NULL);
+  printf("Enzyme (Rust) real %0.6f res=%f\n", tdiff(&start, &end), res);
+  delete[] x;
+  }
+
+  {
+  struct timeval start, end;
+  gettimeofday(&start, NULL);
+
+  double res2 = rust_foobar_and_gradient(len);
+
+  gettimeofday(&end, NULL);
+  printf("Enzyme (Rust) combined %0.6f res'=%f\n", tdiff(&start, &end), res2);
+  }
+}
+
+static void enzyme_unsafe_rust_sincos(double inp, unsigned len) {
+
+  {
+  struct timeval start, end;
+  gettimeofday(&start, NULL);
+
+  double *x = new double[2*len];
+  for(int i=0; i<2*len; i++) x[i] = 2.0;
+  rust_unsafe_foobar(len, x);
+  double res = x[0];
+
+  gettimeofday(&end, NULL);
+  printf("Enzyme (unsafe Rust) real %0.6f res=%f\n", tdiff(&start, &end), res);
+  delete[] x;
+  }
+
+  {
+  struct timeval start, end;
+  gettimeofday(&start, NULL);
+
+  double res2 = rust_unsafe_foobar_and_gradient(len);
+
+  gettimeofday(&end, NULL);
+  printf("Enzyme (unsafe Rust) combined %0.6f res'=%f\n", tdiff(&start, &end), res2);
+  }
+}
+#endif
+
 
 /* Function to check if x is power of 2*/
 bool isPowerOfTwo (int x)
@@ -233,5 +323,9 @@ int main(int argc, char** argv) {
     adept_sincos(inp, iters);
     tapenade_sincos(inp, iters);
     enzyme_sincos(inp, iters);
+#ifdef BENCH_RUST
+    enzyme_rust_sincos(inp, iters);
+    enzyme_unsafe_rust_sincos(inp, iters);
+#endif
   }
 }

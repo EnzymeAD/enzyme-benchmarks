@@ -65,6 +65,36 @@ extern "C" {
         double* loss,
         double* dloss
     );
+
+#ifdef BENCH_RUST
+    void rust_safe_dlstm_objective(
+        int l,
+        int c,
+        int b,
+        double const* main_params,
+        double* dmain_params,
+        double const* extra_params,
+        double* dextra_params,
+        double* state,
+        double const* sequence,
+        double* loss,
+        double* dloss
+    );
+
+    void rust_unsafe_dlstm_objective(
+        int l,
+        int c,
+        int b,
+        double const* main_params,
+        double* dmain_params,
+        double const* extra_params,
+        double* dextra_params,
+        double* state,
+        double const* sequence,
+        double* loss,
+        double* dloss
+    );
+#endif
 }
 
 void read_lstm_instance(const string& fn,
@@ -291,6 +321,73 @@ int main(const int argc, const char* argv[]) {
     }
 
     }
+
+#ifdef BENCH_RUST
+    {
+
+    struct LSTMInput input = {};
+
+    // Read instance
+    read_lstm_instance("data/" + path, &input.l, &input.c, &input.b, input.main_params, input.extra_params, input.state,
+                       input.sequence);
+
+    int Jcols = 8 * input.l * input.b + 3 * input.b;
+    struct LSTMOutput result = { 0, std::vector<double>(Jcols) };
+
+    {
+      struct timeval start, end;
+      gettimeofday(&start, NULL);
+      calculate_jacobian<rust_safe_dlstm_objective>(input, result);
+      gettimeofday(&end, NULL);
+      printf("Enzyme (Rust) combined %0.6f\n", tdiff(&start, &end));
+      json enzyme;
+      enzyme["name"] = "Enzyme (Rust) combined";
+      enzyme["runtime"] = tdiff(&start, &end);
+      for (unsigned i = result.gradient.size() - 5;
+           i < result.gradient.size(); i++) {
+        printf("%f ", result.gradient[i]);
+        enzyme["result"].push_back(result.gradient[i]);
+      }
+      test_suite["tools"].push_back(enzyme);
+
+      printf("\n");
+    }
+
+    }
+
+    {
+
+    struct LSTMInput input = {};
+
+    // Read instance
+    read_lstm_instance("data/" + path, &input.l, &input.c, &input.b, input.main_params, input.extra_params, input.state,
+                       input.sequence);
+
+    int Jcols = 8 * input.l * input.b + 3 * input.b;
+    struct LSTMOutput result = { 0, std::vector<double>(Jcols) };
+
+    {
+      struct timeval start, end;
+      gettimeofday(&start, NULL);
+      calculate_jacobian<rust_unsafe_dlstm_objective>(input, result);
+      gettimeofday(&end, NULL);
+      printf("Enzyme (unsafe Rust) combined %0.6f\n", tdiff(&start, &end));
+      json enzyme;
+      enzyme["name"] = "Enzyme (unsafe Rust) combined";
+      enzyme["runtime"] = tdiff(&start, &end);
+      for (unsigned i = result.gradient.size() - 5;
+           i < result.gradient.size(); i++) {
+        printf("%f ", result.gradient[i]);
+        enzyme["result"].push_back(result.gradient[i]);
+      }
+      test_suite["tools"].push_back(enzyme);
+
+      printf("\n");
+    }
+
+    }
+#endif
+
     test_suite["llvm-version"] = __clang_version__;
     test_suite["mode"] = "ReverseMode";
     test_suite["batch-size"] = 1;

@@ -140,6 +140,38 @@ double foobar(const double* p, const state_type x, const state_type adjoint, dou
     return dx[0];
 }
 
+#ifdef BENCH_RUST
+extern "C" {
+  void rust_dbrusselator_2d_loop_safe(double* adjoint, const double* x, double* dx, const double* p, double* dp, double t);
+  void rust_dbrusselator_2d_loop_unsf(double* adjoint, const double* x, double* dx, const double* p, double* dp, double t);
+}
+
+double rustfoobar_safe(const double* p, const state_type x, const state_type adjoint, double t) {
+    double dp[3] = { 0. };
+
+    state_type dx = { 0. };
+
+    state_type dadjoint_inp = adjoint;
+
+    rust_dbrusselator_2d_loop_safe(dadjoint_inp.data(), x.data(), dx.data(), p, dp, t);
+
+    return dx[0];
+}
+
+double rustfoobar_unsf(const double* p, const state_type x, const state_type adjoint, double t) {
+    double dp[3] = { 0. };
+
+    state_type dx = { 0. };
+
+    state_type dadjoint_inp = adjoint;
+
+    rust_dbrusselator_2d_loop_unsf(dadjoint_inp.data(), x.data(), dx.data(), p, dp, t);
+
+    return dx[0];
+}
+
+#endif
+
 #undef GETnb
 #define GETnb(x, i, j) (x)(N*i+j)
 
@@ -547,6 +579,32 @@ int main(int argc, char** argv) {
   gettimeofday(&end, NULL);
   printf("Enzyme combined %0.6f res=%f\n", tdiff(&start, &end), res);
   }
+
+#ifdef BENCH_RUST
+  {
+  struct timeval start, end;
+  gettimeofday(&start, NULL);
+
+  double res;
+  for(int i=0; i<10000; i++)
+  res = rustfoobar_safe(p, x, adjoint, t);
+
+  gettimeofday(&end, NULL);
+  printf("Enzyme (Rust) combined %0.6f res=%f\n", tdiff(&start, &end), res);
+  }
+
+  {
+  struct timeval start, end;
+  gettimeofday(&start, NULL);
+
+  double res;
+  for(int i=0; i<10000; i++)
+  res = rustfoobar_unsf(p, x, adjoint, t);
+
+  gettimeofday(&end, NULL);
+  printf("Enzyme (unsafe Rust) combined %0.6f res=%f\n", tdiff(&start, &end), res);
+  }
+#endif
   //printf("res=%f\n", foobar(1000));
 }
 

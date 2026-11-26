@@ -126,6 +126,32 @@ void read_gmm_instance(const string& fn,
 typedef void(*deriv_t)(int d, int k, int n, const double *alphas, double *alphasb, const double *means, double *meansb, const double *icf,
             double *icfb, const double *x, Wishart wishart, double *err, double *errb);
 
+#ifdef BENCH_RUST
+extern "C" {
+    void rust_dgmm_objective(size_t d, size_t k, size_t n, const double *alphas,
+        double *alphasb, const double *means, double *meansb, const double *icf,
+        double *icfb, const double *x, const Wishart *wishart, double *err,
+        double *errb);
+
+    void rust_unsafe_dgmm_objective(size_t d, size_t k, size_t n, const double *alphas,
+        double *alphasb, const double *means, double *meansb, const double *icf,
+        double *icfb, const double *x, const Wishart *wishart, double *err,
+        double *errb);
+}
+
+// The Rust entry points take the sizes as usize and the Wishart prior by
+// pointer, so adapt them to deriv_t.
+void rust_safe_dgmm_objective_adapter(int d, int k, int n, const double *alphas, double *alphasb, const double *means, double *meansb, const double *icf,
+            double *icfb, const double *x, Wishart wishart, double *err, double *errb) {
+    rust_dgmm_objective(d, k, n, alphas, alphasb, means, meansb, icf, icfb, x, &wishart, err, errb);
+}
+
+void rust_unsafe_dgmm_objective_adapter(int d, int k, int n, const double *alphas, double *alphasb, const double *means, double *meansb, const double *icf,
+            double *icfb, const double *x, Wishart wishart, double *err, double *errb) {
+    rust_unsafe_dgmm_objective(d, k, n, alphas, alphasb, means, meansb, icf, icfb, x, &wishart, err, errb);
+}
+#endif
+
 template<deriv_t deriv>
 void calculate_jacobian(struct GMMInput &input, struct GMMOutput &result)
 {
@@ -272,6 +298,69 @@ int main(const int argc, const char* argv[]) {
     }
 
     }
+
+#ifdef BENCH_RUST
+    {
+
+    struct GMMInput input;
+    read_gmm_instance("data/" + path, &input.d, &input.k, &input.n,
+        input.alphas, input.means, input.icf, input.x, input.wishart, params.replicate_point);
+
+    int Jcols = (input.k * (input.d + 1) * (input.d + 2)) / 2;
+
+    struct GMMOutput result = { 0, std::vector<double>(Jcols) };
+
+    {
+      struct timeval start, end;
+      gettimeofday(&start, NULL);
+      calculate_jacobian<rust_safe_dgmm_objective_adapter>(input, result);
+      gettimeofday(&end, NULL);
+      printf("Enzyme (Rust) combined %0.6f\n", tdiff(&start, &end));
+      json enzyme;
+      enzyme["name"] = "Enzyme (Rust) combined";
+      enzyme["runtime"] = tdiff(&start, &end);
+      for (unsigned i = result.gradient.size() - 5;
+           i < result.gradient.size(); i++) {
+        printf("%f ", result.gradient[i]);
+        enzyme["result"].push_back(result.gradient[i]);
+      }
+      printf("\n");
+      test_suite["tools"].push_back(enzyme);
+    }
+
+    }
+
+    {
+
+    struct GMMInput input;
+    read_gmm_instance("data/" + path, &input.d, &input.k, &input.n,
+        input.alphas, input.means, input.icf, input.x, input.wishart, params.replicate_point);
+
+    int Jcols = (input.k * (input.d + 1) * (input.d + 2)) / 2;
+
+    struct GMMOutput result = { 0, std::vector<double>(Jcols) };
+
+    {
+      struct timeval start, end;
+      gettimeofday(&start, NULL);
+      calculate_jacobian<rust_unsafe_dgmm_objective_adapter>(input, result);
+      gettimeofday(&end, NULL);
+      printf("Enzyme (unsafe Rust) combined %0.6f\n", tdiff(&start, &end));
+      json enzyme;
+      enzyme["name"] = "Enzyme (unsafe Rust) combined";
+      enzyme["runtime"] = tdiff(&start, &end);
+      for (unsigned i = result.gradient.size() - 5;
+           i < result.gradient.size(); i++) {
+        printf("%f ", result.gradient[i]);
+        enzyme["result"].push_back(result.gradient[i]);
+      }
+      printf("\n");
+      test_suite["tools"].push_back(enzyme);
+    }
+
+    }
+#endif
+
     test_suite["llvm-version"] = __clang_version__;
     test_suite["mode"] = "ReverseMode";
     test_suite["batch-size"] = 1;

@@ -46,6 +46,12 @@ path = os.path.pathsep.join((config.llvm_libs_dir,
                               config.environment.get('LD_LIBRARY_PATH','')))
 config.environment['LD_LIBRARY_PATH'] = path
 
+# Forward the settings of the opt-in Rust benchmarks (see README.md) to the
+# makefiles, together with what cargo and rustup need to find a toolchain.
+for var in ['BENCH_RUST', 'CARGO', 'HOME', 'CARGO_HOME', 'RUSTUP_HOME', 'RUSTUP_TOOLCHAIN']:
+    if var in os.environ:
+        config.environment[var] = os.environ[var]
+
 #tools = ['opt', 'lli', 'clang', 'clang++']
 #llvm_config.add_tool_substitutions(tools, config.llvm_tools_dir)
 
