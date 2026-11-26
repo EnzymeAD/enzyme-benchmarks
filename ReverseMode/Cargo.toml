@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["gmm", "lstm", "ba", "fft", "ode-real"]
+
+# rustc requires fat LTO when `-Zautodiff=Enable` is set.
+[profile.release]
+lto = "fat"
+opt-level = 3
+codegen-units = 1
+panic = "abort"
